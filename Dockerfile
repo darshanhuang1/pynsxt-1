@@ -2,7 +2,7 @@ FROM ubuntu:latest
 
 ADD pynsxt/ /opt/pynsxt/
 
-# install base python packages and PyNSXv
+# install base python packages and PyNSXt
 RUN \
   apt-get update && \
   apt-get upgrade -y && \

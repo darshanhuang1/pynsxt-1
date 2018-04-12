@@ -10,21 +10,21 @@ from swagger_client.models.ip_pool_subnet import IpPoolSubnet
 from swagger_client.models.ip_pool_range import IpPoolRange
 from swagger_client.models.tag import Tag
 from argparse import RawTextHelpFormatter
-from libutils import check_for_parameters,find_transport_zone
+from libutils import check_for_parameters,find_transport_zone,parse_tags
 
-def create_ip_block(client, name, cidr, foundation):
+def create_ip_block(client, name, cidr, tag):
 
-    ip_block = IpBlock(display_name=name, cidr=cidr, tags=[Tag(scope='ncp/cluster', tag=foundation)])
+    ip_block = IpBlock(display_name=name, cidr=cidr, tags=parse_tags(tag))
 
     api_instance = swagger_client.PoolManagementApi(client)
     return api_instance.create_ip_block(ip_block)
 
 def _create_ip_block(client, **kwargs):
-    needed_params = ['name', 'cidr', 'foundation']
+    needed_params = ['name', 'cidr']
     if not check_for_parameters(needed_params, kwargs):
         return None
 
-    result = create_ip_block(client, kwargs['name'], kwargs['cidr'], kwargs['foundation'])
+    result = create_ip_block(client, kwargs['name'], kwargs['cidr'], kwargs['tag'])
 
     if result and kwargs['verbose']:
         print result
@@ -33,19 +33,21 @@ def _create_ip_block(client, **kwargs):
     else:
         print 'Creation of IP Block {} failed for CIDR {}'.format(kwargs['name'], kwargs['cidr'])
 
-def create_ip_pool(client, name, cidr, foundation, start, end):
+def create_ip_pool(client, name, cidr, start, end, tag, external):
 
-    ip_pool = IpPool(display_name=name, tags=[Tag(scope='ncp/cluster', tag=foundation), Tag(scope='ncp/external', tag='true')], subnets=[IpPoolSubnet(cidr=cidr, allocation_ranges=[IpPoolRange(start=start, end=end)])])
+    ip_pool = IpPool(display_name=name, tags=parse_tags(tag), subnets=[IpPoolSubnet(cidr=cidr, allocation_ranges=[IpPoolRange(start=start, end=end)])])
+    if external and external == 'true':
+        ip_pool.tags.append(Tag(scope='external', tag='true'))
 
     api_instance = swagger_client.PoolManagementApi(client)
     return api_instance.create_ip_pool(ip_pool)
 
 def _create_ip_pool(client, **kwargs):
-    needed_params = ['name', 'cidr', 'foundation', 'start', 'end']
+    needed_params = ['name', 'cidr', 'start', 'end']
     if not check_for_parameters(needed_params, kwargs):
         return None
 
-    result = create_ip_pool(client, kwargs['name'], kwargs['cidr'], kwargs['foundation'], kwargs['start'], kwargs['end'])
+    result = create_ip_pool(client, kwargs['name'], kwargs['cidr'], kwargs['start'], kwargs['end'], kwargs['tag'], kwargs['external'])
 
     if result and kwargs['verbose']:
         print result
@@ -78,6 +80,13 @@ def construct_parser(subparsers):
     parser.add_argument("-e",
                         "--end",
                         help="Ending IP address for a range")
+    parser.add_argument("-external",
+                        "--external",
+                        help="Are the IPs in the pool external facing? (true|false)")
+    parser.add_argument("-tag",
+                        "--tag",
+                        help="Tag to be added in the form 'key=value'",
+                        action="append")
 
     parser.set_defaults(func=_switching_main)
 
@@ -96,7 +105,6 @@ def _switching_main(args):
     configuration.username = config.get('nsxv', 'nsx_username')
     configuration.password = config.get('nsxv', 'nsx_password')
     configuration.verify_ssl = False
-    args.foundation = config.get('pcf', 'pcf_foundation')
     client = ApiClient(configuration)
 
     try:
@@ -105,9 +113,9 @@ def _switching_main(args):
             'create_ip_pool': _create_ip_pool,
             }
         command_selector[args.command](client, cidr=args.cidr,
-                                       name=args.name, foundation=args.foundation,
+                                       name=args.name, tag=args.tag,
                                        start=args.start, end=args.end,
-                                       verbose=args.verbose)
+                                       external=args.external, verbose=args.verbose)
     except KeyError:
         print('Unknown command')
 

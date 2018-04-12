@@ -1,4 +1,5 @@
 import swagger_client
+from swagger_client.models.tag import Tag
 
 def check_for_parameters(mandatory, args):
     param = None
@@ -49,3 +50,18 @@ def find_logical_switch(client, name):
         if switch._display_name == name:
             return switch._id, switch
     return None, None
+
+def find_all_nat_rules(client, logical_router_id):
+    api_instance = swagger_client.LogicalRoutingAndServicesApi(client)
+    nat_rules = api_instance.list_nat_rules(logical_router_id)
+    return nat_rules.results
+
+def parse_tags(tag):
+    tags = []
+    if tag:
+        if isinstance(tag, list):
+            for t in tag:
+                tags.append(Tag(scope=t.split('=')[0], tag=t.split('=')[1]))
+        elif isinstance(tag, str):
+            tags.append(Tag(scope=tag.split('=')[0], tag=tag.split('=')[1]))
+    return tags

@@ -7,9 +7,12 @@ import argparse
 import library.nsx_switching as switching
 import library.nsx_routing as routing
 import library.nsx_pool as pool
-
+import library.nsx_setup as setup
+import urllib3
 
 def main():
+    urllib3.disable_warnings()
+
     parser = argparse.ArgumentParser(description='PyNSXv Command Line Client for NSX for vSphere')
     parser.add_argument("-i",
                         "--ini",
@@ -28,6 +31,7 @@ def main():
     switching.construct_parser(subparsers)
     routing.construct_parser(subparsers)
     pool.construct_parser(subparsers)
+    setup.construct_parser(subparsers)
 
     args = parser.parse_args()
     args.func(args)

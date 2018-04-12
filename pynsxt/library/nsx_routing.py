@@ -16,9 +16,9 @@ from swagger_client.models.advertisement_config import AdvertisementConfig
 from swagger_client.models.tag import Tag
 from swagger_client.models.nat_rule import NatRule
 from argparse import RawTextHelpFormatter
-from libutils import check_for_parameters,find_edge_cluster,find_logical_router,find_logical_switch
+from libutils import check_for_parameters,find_edge_cluster,find_logical_router,find_logical_switch,parse_tags
 
-def create_router(client, name, router_type, edge_cluster=None, t0=None, foundation=None):
+def create_router(client, name, router_type, edge_cluster=None, t0=None, tag=None):
 
     if edge_cluster:
         edge_cluster_id, edge_cluster = find_edge_cluster(client, edge_cluster)
@@ -27,7 +27,7 @@ def create_router(client, name, router_type, edge_cluster=None, t0=None, foundat
         router = LogicalRouter(display_name=name, router_type=router_type, high_availability_mode='ACTIVE_STANDBY')
 
     if router_type == 'TIER0':
-        router.tags = [Tag(scope='ncp/cluster', tag=foundation)]
+        router.tags = parse_tags(tag)
 
     api_instance = swagger_client.LogicalRoutingAndServicesApi(client)
     result = api_instance.create_logical_router(router)
@@ -43,11 +43,11 @@ def create_router(client, name, router_type, edge_cluster=None, t0=None, foundat
     return result
 
 def _create_router(client, **kwargs):
-    needed_params = ['router_type', 'name', 'foundation']
+    needed_params = ['router_type', 'name']
     if not check_for_parameters(needed_params, kwargs):
         return None
 
-    result = create_router(client, kwargs['name'], kwargs['router_type'], kwargs['edge_cluster'], kwargs['t0'], kwargs['foundation'])
+    result = create_router(client, kwargs['name'], kwargs['router_type'], kwargs['edge_cluster'], kwargs['t0'], kwargs['tag'])
 
     if result and kwargs['verbose']:
         print result
@@ -219,6 +219,10 @@ def construct_parser(subparsers):
     parser.add_argument("-t0",
                         "--t0",
                         help="Tier-0 Router to connect Tier-1 router to during creation")
+    parser.add_argument("-tag",
+                        "--tag",
+                        help="Tag to be added to the T0 Router in the form 'key=value'",
+                        action="append")
 
     parser.set_defaults(func=_routing_main)
 
@@ -237,7 +241,6 @@ def _routing_main(args):
     configuration.username = config.get('nsxv', 'nsx_username')
     configuration.password = config.get('nsxv', 'nsx_password')
     configuration.verify_ssl = False
-    args.foundation = config.get('pcf', 'pcf_foundation')
     client = ApiClient(configuration)
 
     try:
@@ -254,7 +257,7 @@ def _routing_main(args):
                                        mask=args.mask, network=args.network,
                                        next_hop=args.next_hop, original_ip=args.original_ip,
                                        translated_ip=args.translated_ip, action=args.action,
-                                       t0=args.t0, foundation=args.foundation,
+                                       t0=args.t0, tag=args.tag,
                                        verbose=args.verbose)
     except KeyError:
         print('Unknown command')
